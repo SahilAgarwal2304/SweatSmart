@@ -192,3 +192,61 @@ document.getElementById('save-workout-btn').addEventListener('click', async () =
         console.error("Error saving workout:", error);
     }
 });
+// [Imports and Firebase Init same as previous...]
+
+// --- 1. Global State ---
+let userRoutine = { Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: [] };
+let workoutLogs = []; // Array of dates completed
+
+// --- 2. Load Weekly Routine ---
+async function fetchWeeklyRoutine(uid) {
+    const routineDoc = await getDoc(doc(db, "routines", uid));
+    if (routineDoc.exists()) {
+        userRoutine = routineDoc.data();
+        loadActiveSession(); // Load today's exercises
+    }
+}
+
+// --- 3. Calendar Logic ---
+function renderCalendar() {
+    const calendarEl = document.getElementById('workout-calendar');
+    calendarEl.innerHTML = '';
+    const today = new Date();
+    // Render last 28 days
+    for (let i = 27; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(today.getDate() - i);
+        const dayStr = d.toISOString().split('T')[0];
+        
+        const dayDiv = document.createElement('div');
+        dayDiv.className = `calendar-day ${workoutLogs.includes(dayStr) ? 'active' : ''}`;
+        dayDiv.textContent = d.getDate();
+        calendarEl.appendChild(dayDiv);
+    }
+}
+
+// --- 4. The "Add to Routine" Modal ---
+function openExerciseModal(exercise) {
+    const modal = document.getElementById('global-modal');
+    const options = document.getElementById('modal-options');
+    modal.style.display = 'flex';
+    
+    options.innerHTML = `
+        <button class="primary-btn w-full mb-2" onclick="addToSession('${exercise.name}')">Add to Today's Session</button>
+        <button class="secondary-btn w-full" onclick="addToPermanentRoutine('${exercise.name}')">Add to Weekly Routine</button>
+    `;
+}
+
+// --- 5. Finish Session Logic ---
+document.getElementById('finish-session-btn').addEventListener('click', async () => {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Log to Firebase
+    await setDoc(doc(db, "users", auth.currentUser.uid, "logs", today), {
+        completed: true,
+        timestamp: serverTimestamp()
+    });
+
+    alert("Workout Saved! Consistency is key.");
+    location.reload(); // Refresh to show marked calendar
+});
